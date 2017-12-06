@@ -5,7 +5,7 @@ import sys
 import pygame
 from pygame.locals import *
 
-
+practiceMode = True
 FPS = 30
 SCREENWIDTH  = 288
 SCREENHEIGHT = 512
@@ -75,7 +75,8 @@ def main():
         pygame.image.load('assets/sprites/6.png').convert_alpha(),
         pygame.image.load('assets/sprites/7.png').convert_alpha(),
         pygame.image.load('assets/sprites/8.png').convert_alpha(),
-        pygame.image.load('assets/sprites/9.png').convert_alpha()
+        pygame.image.load('assets/sprites/9.png').convert_alpha(),
+        pygame.image.load('assets/sprites/neg.png').convert_alpha()
     )
 
     # game over sprite
@@ -242,16 +243,19 @@ def mainGame(movementInfo):
         crashTest = checkCrash({'x': playerx, 'y': playery, 'index': playerIndex},
                                upperPipes, lowerPipes)
         if crashTest[0]:
-            return {
-                'y': playery,
-                'groundCrash': crashTest[1],
-                'basex': basex,
-                'upperPipes': upperPipes,
-                'lowerPipes': lowerPipes,
-                'score': score,
-                'playerVelY': playerVelY,
-                'playerRot': playerRot
-            }
+            if practiceMode:
+                score -= 1
+            else:
+                return {
+                    'y': playery,
+                    'groundCrash': crashTest[1],
+                    'basex': basex,
+                    'upperPipes': upperPipes,
+                    'lowerPipes': lowerPipes,
+                    'score': score,
+                    'playerVelY': playerVelY,
+                    'playerRot': playerRot
+                }
 
         # check for score
         playerMidPos = playerx + IMAGES['player'][0].get_width() / 2
@@ -408,7 +412,9 @@ def getRandomPipe():
 
 def showScore(score):
     """displays score in center of screen"""
-    scoreDigits = [int(x) for x in list(str(score))]
+    scoreDigits = [int(x) for x in list(str(abs(score)))]
+    if score<0:
+        scoreDigits = [10] + scoreDigits
     totalWidth = 0 # total width of all numbers to be printed
 
     for digit in scoreDigits:
