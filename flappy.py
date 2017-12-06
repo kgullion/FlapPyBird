@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 
 practiceMode = True
-FPS = 30
+FPS = 300
 SCREENWIDTH  = 288
 SCREENHEIGHT = 512
 # amount by which base can maximum shift to left
@@ -189,6 +189,14 @@ def showWelcomeAnimation():
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
+import numpy as np
+def buildState(x, y, pipes):
+    pipes = filter(lambda p:x<p[0]['x'], pipes)
+    pipe = min(pipes, key=lambda p:p[0]['x'])
+    pipe_x = pipe[0]['x']
+    pipe_y = (pipe[0]['y'] + pipe[1]['y'])/2
+    state = np.array([[pipe_x - x, pipe_y - y, y]])
+    return state
 
 def mainGame(movementInfo):
     score = playerIndex = loopIter = 0
@@ -228,7 +236,18 @@ def mainGame(movementInfo):
     playerFlapped = False # True when player flaps
 
 
+    from training import DQN
+    agent = DQN()
+    state = buildState(playerx, playery, zip(upperPipes, lowerPipes))
+
     while True:
+        old_score = score
+        action = agent.act(state)
+        if action:
+            if playery > -2 * IMAGES['player'][0].get_height():
+                playerVelY = playerFlapAcc
+                playerFlapped = True
+                SOUNDS['wing'].play()
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                 pygame.quit()
@@ -238,12 +257,13 @@ def mainGame(movementInfo):
                     playerVelY = playerFlapAcc
                     playerFlapped = True
                     SOUNDS['wing'].play()
+                    action = 1
 
         # check for crash here
         crashTest = checkCrash({'x': playerx, 'y': playery, 'index': playerIndex},
                                upperPipes, lowerPipes)
         if crashTest[0]:
-            if practiceMode:
+            if practiceMode or trainMode:
                 score -= 1
             else:
                 return {
@@ -319,6 +339,21 @@ def mainGame(movementInfo):
         if playerRot <= playerRotThr:
             visibleRot = playerRot
         
+        new_state = buildState(playerx, playery, zip(upperPipes, lowerPipes))
+        if crashTest[0]:
+            reward = -10
+            if crashTest[1]:
+                reward = -1000
+        elif score > old_score:
+            reward = 500
+        else:
+            reward = 10
+
+        agent.remember(state, action, reward, new_state)
+        agent.replay()
+        # print(state)
+        state = new_state
+
         playerSurface = pygame.transform.rotate(IMAGES['player'][playerIndex], visibleRot)
         SCREEN.blit(playerSurface, (playerx, playery))
 
